@@ -1,12 +1,12 @@
 {
-  "name": "@sherwin-terunez/react-native-drawer",
+  "name": "react-native-drawer",
   "version": "2.3.0",
   "description": "React Native Drawer",
   "main": "index.js",
   "scripts": {},
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/sherwinterunez/react-native-drawer.git"
+    "url": "git@github.com:rt2zz/react-native-drawer.git"
   },
   "dependencies": {
     "tween-functions": "^1.0.1"
@@ -30,10 +30,10 @@
     "android",
     "material design"
   ],
-  "author": "sherwin terunez <sherwin@terunez.com>",
+  "author": "rt2zz <zack@root-two.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/sherwinterunez/react-native-drawer/issues"
+    "url": "https://github.com/rt2zz/react-native-drawer/issues"
   },
-  "homepage": "https://github.com/sherwinterunez/react-native-drawer"
+  "homepage": "https://github.com/rt2zz/react-native-drawer"
 }
