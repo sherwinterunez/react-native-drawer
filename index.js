@@ -31,7 +31,8 @@ export default class Drawer extends Component {
   };
 
   state = {
-    viewport: deviceScreen
+    viewport: deviceScreen,
+    ratio: 0,
   };
 
   static propTypes = {
@@ -122,18 +123,51 @@ export default class Drawer extends Component {
   }
 
   componentWillReceiveProps(nextProps) {
-    if (this.requiresResync(nextProps)) this.resync(null, nextProps)
+    if (this.requiresResync(nextProps)) {
+      //console.log('Drawer/componentWillReceiveProps:requiresResync()');
+      this.resync(null, nextProps);
+    }
 
     if (nextProps.open !== null && this._open !== nextProps.open) {
       this._syncAfterUpdate = true
       this._open = nextProps.open
     }
+
+    //if (this._syncAfterUpdate) {
+    //  this.close('force');
+    //}
+  }
+
+  componentWillUpdate() {
+    //console.log('Drawer/componentWillUpdate()');
+    //console.log({_syncAfterUpdate:this._syncAfterUpdate});
+
+    if (this._syncAfterUpdate) {
+      //this.drawerOverlay.setNativeProps({style:{opacity:0}});
+      //this.drawer.setNativeProps({style:{opacity:0}});
+      //this.main.setNativeProps({style:{opacity:0}});
+    }
   }
 
   componentDidUpdate() {
+
+    //console.log('Drawer/componentDidUpdate()');
+    //console.log({_syncAfterUpdate:this._syncAfterUpdate});
+
     if (this._syncAfterUpdate) {
       this._syncAfterUpdate = false
-      this._open ? this.open('force') : this.close('force')
+
+      setTimeout(() => {
+        this.drawer.setNativeProps({style:{opacity:1}});
+      },400);
+
+      //this.main.setNativeProps({style:{opacity:1}});
+
+      //console.log('Drawer/componentDidUpdate: this._open = '+this._open);
+
+      //this._open ? this.open('force') : this.close('force')
+
+      //this.close('force');
     }
   }
 
@@ -197,15 +231,39 @@ export default class Drawer extends Component {
     this.resync(null, props)
   };
 
-  updatePosition = () => {
+  updatePosition = (reset,viewport) => {
     let mainProps = {}
     let drawerProps = {}
-    let ratio = (this._left - this._offsetClosed) / (this.getOpenLeft() - this._offsetClosed)
+    let ratio = 0;
+
+    //console.log({ratio:ratio});
+
+    //this.setState({ratio:ratio*0.75});
+
+    viewport = viewport || this.state.viewport;
+
+    ratio = (this._left - this._offsetClosed) / ((viewport.width - this._offsetOpen) - this._offsetClosed);
 
     switch (this.props.type) {
       case 'overlay':
-        drawerProps[this.props.side] = -this.state.viewport.width + this._offsetOpen + this._left
+
+        //let o = 0;
+
+        //if(typeof(reset)==='boolean'&&reset===true) {
+          //drawerProps[this.props.side] = o;
+          //ratio = 0.75;
+          //o = 0;
+        //} else {
+          //o = -this.state.viewport.width + this._offsetOpen + this._left;
+          let o = -viewport.width + this._offsetOpen + this._left;
+        //}
+
+        drawerProps[this.props.side] = o;
+
         mainProps[this.props.side] = this._offsetClosed
+        //console.log(this.props.side,drawerProps,mainProps);
+        //console.log({o:o,mainProps:mainProps,drawerProps:drawerProps,});
+        //console.log({'viewport.width':viewport.width,_offsetOpen:this._offsetOpen,_left:this._left,_offsetClosed:this._offsetClosed,getOpenLeft:this.getOpenLeft(),ratio:ratio});
         break
       case 'static':
         mainProps[this.props.side] = this._left
@@ -226,6 +284,9 @@ export default class Drawer extends Component {
       mainOverlayProps = propsFrag.mainOverlay
       drawerOverlayProps = propsFrag.drawerOverlay
     }
+
+    mainOverlayProps = {backgroundColor:this.mainOverlayColor(ratio*0.75)};
+
     if (this.main && this.drawer && this.mainOverlay && this.drawerOverlay) {
       this.drawer.setNativeProps({style: drawerProps})
       this.main.setNativeProps({style: mainProps})
@@ -244,7 +305,7 @@ export default class Drawer extends Component {
     this._panning = false
     this.shouldOpenDrawer(gestureState.dx) ? this.open() : this.close()
   };
-    
+
   onStartShouldSetPanResponderCapture = (e, gestureState) => {
     if (this.shouldCaptureGestures()) return this.processShouldSet(e, gestureState)
     return false
@@ -369,7 +430,7 @@ export default class Drawer extends Component {
     }
   };
 
-  open = (type, cb) => {
+  open = (type) => {
     let start = this._left
     let end = this.getOpenLeft()
 
@@ -394,21 +455,18 @@ export default class Drawer extends Component {
         this.adjustForCaptureGestures()
         this.props.onOpen()
         this.clearInteractionHandle()
-
-        if(typeof type === 'function') {
-          type() // this is actually a callback
-        } else cb && cb()
-        
       }
     })
   };
 
-  close = (type, cb) => {
+  close = (type) => {
     let start = this._left
     let end = this.getClosedLeft()
 
     if (this._activeTween) return
     if (type !== 'force' && start - end === 0 && this._open === false) return // do nothing if the delta is 0
+
+    //console.log({start:start, end:end});
 
     this.props.onCloseStart && this.props.onCloseStart()
     this.setInteractionHandle()
@@ -428,11 +486,6 @@ export default class Drawer extends Component {
         this.adjustForCaptureGestures()
         this.props.onClose()
         this.clearInteractionHandle()
-
-        if(typeof type === 'function') {
-          type() // this is actually a callback
-        } else cb && cb()
-
       }
     })
   };
@@ -462,17 +515,36 @@ export default class Drawer extends Component {
   handleSetViewport = (e) => {
     let viewport = e.nativeEvent.layout
     let oldViewport = this.state.viewport
+
     if (viewport.width === oldViewport.width && viewport.height === oldViewport.height) return
+
     let didRotationChange = viewport.width !== oldViewport.width
+
+    //console.log({didRotationChange:didRotationChange,_open:this._open,viewport:viewport,oldViewport:oldViewport});
+
     this.resync(viewport, null, didRotationChange)
   };
 
   resync = (viewport, props, didRotationChange) => {
-    if (didRotationChange) this._syncAfterUpdate = true
+    if (didRotationChange) {
+      this._syncAfterUpdate = true;
+      this.drawer.setNativeProps({style:{opacity:0}});
+    }
     viewport = viewport || this.state.viewport
     props = props || this.props
     this._offsetClosed = this.getClosedOffset(props, viewport)
     this._offsetOpen = this.getOpenOffset(props, viewport)
+
+    if (didRotationChange) {
+      if(this._open) {
+        this._left = viewport.width - this._offsetOpen;
+        this.updatePosition(true,viewport);
+      } else {
+        this.updatePosition(false,viewport);
+        //console.log({_left:this._left});
+      }
+    }
+
     this.setState({ viewport })
   };
 
@@ -510,8 +582,13 @@ export default class Drawer extends Component {
   /*** END DYNAMIC GETTERS ***/
 
   render() {
+
+    //console.log('Drawer/render()');
+
     let first = this.props.type === 'overlay' ? this.renderMain() : this.renderDrawer()
     let second = this.props.type === 'overlay' ? this.renderDrawer() : this.renderMain()
+
+    //console.log('render()',this.state.ratio);
 
     return (
       <View
@@ -537,10 +614,34 @@ export default class Drawer extends Component {
         <View
           pointerEvents={ this._open && this.shouldCaptureGestures() ? 'auto' : 'none' }
           ref={c => this.mainOverlay = c}
-          style={[styles.overlay, this.props.styles && this.props.styles.mainOverlay]}
+          style={[{
+            right: 0,
+            left: 0,
+            top: 0,
+            bottom: 0,
+            position: 'absolute',
+          }, this.props.styles && this.props.styles.mainOverlay]}
           />
       </View>
     )
+  }
+
+  /*
+  backgroundColor:this.bColor(),
+  */
+
+  mainOverlayColor = (ratio) => {
+    const red = 0;
+    const green = 0;
+    const blue = 0;
+    return 'rgba(0, 0, 0, '+ratio+')';
+  }
+
+  bColor = () => {
+    const red = 0;
+    const green = 0;
+    const blue = 0;
+    return 'rgba(0, 0, 0, '+this.state.ratio+')';
   }
 
   renderDrawer() {
@@ -556,14 +657,53 @@ export default class Drawer extends Component {
         <View
           pointerEvents={ !this._open && this.shouldCaptureGestures() ? 'auto' : 'none' }
           ref={c => this.drawerOverlay = c}
-          style={[styles.overlay, this.props.styles && this.props.styles.drawerOverlay]}
+          style={[styles2.overlay, this.props.styles && this.props.styles.drawerOverlay]}
           />
       </View>
     )
   }
 }
 
+/*
+          style={[{
+            right: 0,
+            left: 0,
+            top: 0,
+            bottom: 0,
+            position: 'absolute',
+            backgroundColor:'transparent',
+          }, this.props.styles && this.props.styles.drawerOverlay]}
+
+
+          style={[styles.overlay, this.props.styles && this.props.styles.drawerOverlay]}
+
+*/
+
+const xstyles = {
+  overlay: {
+    right: 0,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    position: 'absolute',
+    backgroundColor:'rgba(0,0,0,0.5)',
+    /*backgroundColor: 'transparent'*/
+  }
+}
+
 const styles = StyleSheet.create({
+  overlay: {
+    right: 0,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    position: 'absolute',
+    //backgroundColor: 'transparent'
+    backgroundColor:'rgba(0,0,0,0.5)',
+  }
+})
+
+const styles2 = StyleSheet.create({
   overlay: {
     right: 0,
     left: 0,
